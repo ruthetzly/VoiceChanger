@@ -1,154 +1,362 @@
 package com.dalong.voicechanger
 
 import android.Manifest
-import android.content.ComponentName
-import android.content.Intent
-import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import android.media.AudioAttributes
 import android.media.AudioFormat
-import android.media.AudioTrack
-import android.os.Build
+import android.media.AudioRecord
+import android.media.MediaPlayer
+import android.media.MediaRecorder
+import android.os.AsyncTask
 import android.os.Bundle
-import android.os.IBinder
-import android.widget.Button
-import android.widget.EditText
-import android.widget.SeekBar
-import android.widget.TextView
-import android.widget.ToggleButton
+import android.os.Environment
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.android.material.switchmaterial.SwitchMaterial
-import java.util.Base64
+import com.google.gson.Gson
+import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.vosk.LibVosk
+import org.vosk.LogLevel
+import org.vosk.Model
+import org.vosk.Recognizer
+import java.io.*
+import java.net.URL
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var etServerUrl: EditText
-    private lateinit var btnConnect: Button
-    private lateinit var toggleRecord: ToggleButton
-    private lateinit var tvStatus: TextView
-    private lateinit var tvOriginalText: TextView
-    private lateinit var tvTranslatedText: TextView
-    private lateinit var sbVolume: SeekBar
-    private lateinit var switchChatous: SwitchMaterial
-
-    private var audioService: AudioProcessingService? = null
-    private var serviceBound = false
-
-    private val connection = object : ServiceConnection {
-        override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
-            val binder = service as AudioProcessingService.AudioBinder
-            audioService = binder.getService()
-            audioService?.statusCallback = { status: String ->
-                runOnUiThread { tvStatus.text = status }
-            }
-            audioService?.textCallback = { original: String, translated: String ->
-                runOnUiThread {
-                    tvOriginalText.text = "识别: $original"
-                    tvTranslatedText.text = "翻译: $translated"
-                }
-            }
-            serviceBound = true
-            tvStatus.text = "服务已绑定"
-        }
-
-        override fun onServiceDisconnected(name: ComponentName?) {
-            serviceBound = false
-            audioService = null
-            tvStatus.text = "服务断开"
-        }
+    companion object {
+        private const val SAMPLE_RATE = 16000
+        private const val SERVER_URL = "http://101.37.237.237:80"
+        private const val MODEL_URL = "$SERVER_URL/vosk-model-small-cn-0.22.zip"
+        private const val MODEL_DIR = "vosk-model-small-cn-0.22"
     }
+
+    private lateinit var tvStatus: TextView
+    private lateinit var tvRecognized: TextView
+    private lateinit var tvTranslated: TextView
+    private lateinit var btnRecord: ToggleButton
+    private lateinit var seekVolume: SeekBar
+    private lateinit var switchSpeaker: SwitchMaterial
+    private lateinit var progressBar: ProgressBar
+
+    private var voskModel: Model? = null
+    private var recognizer: Recognizer? = null
+    private var audioRecord: AudioRecord? = null
+    private var isRecording = false
+    private val gson = Gson()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
+
+    private var recognizedText = ""
+    private var volumeLevel = 0.8f
+    private var speakerMode = false
+
+    // 用于 SwitchMaterial
+    import com.google.android.material.switchmaterial.SwitchMaterial
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        LibVosk.setLogLevel(LogLevel.WARNINGS)
         initViews()
-        requestPermissions()
-        startService()
+        checkPermissions()
+        initModel()
     }
 
     private fun initViews() {
-        etServerUrl = findViewById(R.id.et_server_url)
-        btnConnect = findViewById(R.id.btn_connect)
-        toggleRecord = findViewById(R.id.toggle_record)
         tvStatus = findViewById(R.id.tv_status)
-        tvOriginalText = findViewById(R.id.tv_original_text)
-        tvTranslatedText = findViewById(R.id.tv_translated_text)
-        sbVolume = findViewById(R.id.sb_volume)
-        switchChatous = findViewById(R.id.switch_chatous)
+        tvRecognized = findViewById(R.id.tv_recognized)
+        tvTranslated = findViewById(R.id.tv_translated)
+        btnRecord = findViewById(R.id.btn_record)
+        seekVolume = findViewById(R.id.seek_volume)
+        switchSpeaker = findViewById(R.id.switch_speaker)
+        progressBar = findViewById(R.id.progress_bar)
 
-        // 默认服务器地址（大龙的服务器）
-        etServerUrl.setText("101.37.237.237:8765")
-
-        btnConnect.setOnClickListener {
-            val url = etServerUrl.text.toString().trim()
-            audioService?.connectToServer(url)
-            tvStatus.text = "正在连接 $url..."
-        }
-
-        toggleRecord.setOnCheckedChangeListener { _, isChecked ->
+        btnRecord.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) {
-                audioService?.startProcessing()
-                tvStatus.text = "🎤 变声中..."
+                startRecording()
             } else {
-                audioService?.stopProcessing()
-                tvStatus.text = "⏹ 已停止"
+                stopRecording()
             }
         }
 
-        sbVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seek: SeekBar?, progress: Int, fromUser: Boolean) {
-                audioService?.setVolume(progress / 100f)
+        seekVolume.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar?, p: Int, f: Boolean) {
+                volumeLevel = p / 100f
             }
-            override fun onStartTrackingTouch(seek: SeekBar?) {}
-            override fun onStopTrackingTouch(seek: SeekBar?) {}
+            override fun onStartTrackingTouch(s: SeekBar?) {}
+            override fun onStopTrackingTouch(s: SeekBar?) {}
         })
 
-        switchChatous.setOnCheckedChangeListener { _, isChecked ->
-            audioService?.setSpeakerMode(isChecked)
+        switchSpeaker.setOnCheckedChangeListener { _, isChecked ->
+            speakerMode = isChecked
             if (isChecked) {
-                tvStatus.text = "📢 扬声器模式（可配合Chatous使用）"
+                tvStatus.text = "📢 扬声器模式（配合Chatous等APP使用）"
             }
         }
     }
 
-    private fun requestPermissions() {
-        val permissions = mutableListOf(
+    private fun checkPermissions() {
+        val perms = listOf(
             Manifest.permission.RECORD_AUDIO,
-            Manifest.permission.INTERNET
-        )
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            permissions.add(Manifest.permission.FOREGROUND_SERVICE_MICROPHONE)
-        }
-
-        val missing = permissions.filter {
+            Manifest.permission.INTERNET,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+        ).filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-        if (missing.isNotEmpty()) {
-            ActivityCompat.requestPermissions(this, missing.toTypedArray(), 100)
+        if (perms.isNotEmpty()) {
+            ActivityCompat.requestPermissions(this, perms.toTypedArray(), 101)
         }
     }
 
-    private fun startService() {
-        val intent = Intent(this, AudioProcessingService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
+    private fun initModel() {
+        tvStatus.text = "⏳ 加载语音模型..."
+        val modelPath = File(filesDir, MODEL_DIR)
+
+        if (modelPath.exists()) {
+            loadModel(modelPath)
         } else {
-            startService(intent)
+            downloadModel(modelPath)
         }
-        bindService(intent, connection, BIND_AUTO_CREATE)
     }
+
+    private fun downloadModel(targetDir: File) {
+        tvStatus.text = "⏳ 首次使用，下载语音模型(约40MB)..."
+        progressBar.visibility = ProgressBar.VISIBLE
+
+        Thread {
+            try {
+                val url = URL(MODEL_URL)
+                val conn = url.openConnection()
+                conn.connectTimeout = 30000
+                conn.readTimeout = 60000
+
+                val zipFile = File(cacheDir, "vosk-model.zip")
+                val input = conn.getInputStream()
+                val output = FileOutputStream(zipFile)
+                val buffer = ByteArray(8192)
+                var bytesRead: Int
+                var totalRead = 0
+                val totalSize = conn.contentLength
+
+                while (input.read(buffer).also { bytesRead = it } != -1) {
+                    output.write(buffer, 0, bytesRead)
+                    totalRead += bytesRead
+                    if (totalSize > 0) {
+                        val percent = totalRead * 100 / totalSize
+                        runOnUiThread {
+                            progressBar.progress = percent
+                            tvStatus.text = "⏳ 下载中 $percent%"
+                        }
+                    }
+                }
+                output.close()
+                input.close()
+
+                // 解压
+                runOnUiThread { tvStatus.text = "⏳ 解压模型中..." }
+                unzip(zipFile, filesDir)
+                zipFile.delete()
+
+                runOnUiThread { loadModel(targetDir) }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    tvStatus.text = "❌ 模型下载失败: ${e.message}"
+                    progressBar.visibility = ProgressBar.GONE
+                }
+            }
+        }.start()
+    }
+
+    private fun unzip(zipFile: File, targetDir: File) {
+        val zipInputStream = java.util.zip.ZipInputStream(FileInputStream(zipFile))
+        var entry = zipInputStream.nextEntry
+        val buffer = ByteArray(8192)
+        while (entry != null) {
+            val file = File(targetDir, entry.name)
+            if (entry.isDirectory) {
+                file.mkdirs()
+            } else {
+                file.parentFile?.mkdirs()
+                val fos = FileOutputStream(file)
+                var len: Int
+                while (zipInputStream.read(buffer).also { len = it } != -1) {
+                    fos.write(buffer, 0, len)
+                }
+                fos.close()
+            }
+            zipInputStream.closeEntry()
+            entry = zipInputStream.nextEntry
+        }
+        zipInputStream.close()
+    }
+
+    private fun loadModel(modelDir: File) {
+        try {
+            voskModel = Model(modelDir.absolutePath)
+            runOnUiThread {
+                tvStatus.text = "✅ 已就绪，点击开始变声"
+                progressBar.visibility = ProgressBar.GONE
+                btnRecord.isEnabled = true
+            }
+        } catch (e: Exception) {
+            runOnUiThread {
+                tvStatus.text = "❌ 模型加载失败: ${e.message}"
+            }
+        }
+    }
+
+    private fun startRecording() {
+        val model = voskModel ?: return
+        recognizer = Recognizer(model, SAMPLE_RATE)
+
+        val bufferSize = AudioRecord.getMinBufferSize(
+            SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT
+        )
+        audioRecord = AudioRecord(
+            MediaRecorder.AudioSource.MIC, SAMPLE_RATE,
+            AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
+            bufferSize * 4
+        )
+
+        isRecording = true
+        audioRecord?.startRecording()
+        tvStatus.text = "🎤 录音中...（说中文）"
+        tvRecognized.text = ""
+        tvTranslated.text = ""
+
+        Thread {
+            val buffer = ByteArray(4096)
+            val textBuffer = StringBuilder()
+
+            while (isRecording) {
+                val bytesRead = audioRecord?.read(buffer, 0, buffer.size) ?: 0
+                if (bytesRead > 0 && recognizer != null) {
+                    if (recognizer!!.acceptWaveForm(buffer, bytesRead)) {
+                        val result = recognizer!!.result
+                        val partial = parseJson(result, "text")
+                        if (partial.isNotEmpty()) {
+                            textBuffer.append(partial).append(" ")
+                            runOnUiThread {
+                                tvRecognized.text = "你说: $textBuffer"
+                            }
+                            // 每句话说完自动翻译
+                            if (partial.endsWith("。") || partial.endsWith("？") || partial.endsWith("！") || partial.endsWith(".") || partial.endsWith("?")) {
+                                val finalText = textBuffer.toString().trim()
+                                textBuffer.clear()
+                                sendToServer(finalText)
+                            }
+                        }
+                    } else {
+                        val partial = recognizer!!.partialResult
+                        val text = parseJson(partial, "partial")
+                        if (text.isNotEmpty()) {
+                            runOnUiThread {
+                                tvRecognized.text = "你说: $textBuffer$text"
+                            }
+                        }
+                    }
+                }
+            }
+        }.start()
+    }
+
+    private fun stopRecording() {
+        isRecording = false
+        audioRecord?.apply {
+            try { stop() } catch (_: Exception) {}
+            release()
+        }
+        audioRecord = null
+        recognizer?.free()
+        recognizer = null
+        tvStatus.text = "⏹ 已停止"
+        btnRecord.isChecked = false
+    }
+
+    private fun sendToServer(text: String) {
+        Thread {
+            try {
+                tvStatus.text = "🌐 翻译中..."
+                val body = MultipartBody.Builder()
+                    .setType(MultipartBody.FORM)
+                    .addFormDataPart("text", text)
+                    .addFormDataPart("target_lang", "id")
+                    .build()
+
+                val request = Request.Builder()
+                    .url("$SERVER_URL/api/translate_tts")
+                    .post(body)
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val result = gson.fromJson(response.body?.string(), TranslateResult::class.java)
+                        runOnUiThread {
+                            tvTranslated.text = "🇮🇩 ${result.translated_text}"
+                            tvStatus.text = "🔊 播放女声..."
+                        }
+
+                        // 下载并播放音频
+                        if (result.audio_url != null) {
+                            playAudio(result.audio_url)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    tvStatus.text = "❌ 网络错误: ${e.message}"
+                    tvTranslated.text = "翻译失败，请检查网络"
+                }
+            }
+        }.start()
+    }
+
+    private fun playAudio(audioUrl: String) {
+        try {
+            val mediaPlayer = MediaPlayer()
+            mediaPlayer.setDataSource(audioUrl)
+            mediaPlayer.setVolume(volumeLevel, volumeLevel)
+            mediaPlayer.setOnPreparedListener {
+                it.start()
+                runOnUiThread { tvStatus.text = "🔊 播放中（扬声器模式可配合Chatous）" }
+            }
+            mediaPlayer.setOnCompletionListener {
+                it.release()
+                runOnUiThread {
+                    tvStatus.text = if (isRecording) "🎤 继续录音..." else "⏹ 播放完成"
+                }
+            }
+            mediaPlayer.prepareAsync()
+        } catch (e: Exception) {
+            runOnUiThread { tvStatus.text = "❌ 播放失败: ${e.message}" }
+        }
+    }
+
+    private fun parseJson(json: String, key: String): String {
+        return try {
+            val obj = gson.fromJson(json, Map::class.java)
+            obj[key] as? String ?: ""
+        } catch (e: Exception) { "" }
+    }
+
+    data class TranslateResult(
+        val status: String,
+        val original_text: String,
+        val translated_text: String,
+        val audio_url: String?,
+        val error: String?
+    )
 
     override fun onDestroy() {
-        if (serviceBound) {
-            unbindService(connection)
-            serviceBound = false
-        }
+        stopRecording()
+        voskModel?.free()
         super.onDestroy()
     }
 }

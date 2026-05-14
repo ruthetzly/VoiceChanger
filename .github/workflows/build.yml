@@ -25,7 +25,6 @@ jobs:
       - name: 编译 Debug APK
         run: |
           cd android
-          # 下载gradle并直接使用
           curl -sL -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.5-bin.zip
           unzip -q /tmp/gradle.zip -d /tmp/
           /tmp/gradle-8.5/bin/gradle assembleDebug
@@ -33,5 +32,5 @@ jobs:
       - name: 上传 APK
         uses: actions/upload-artifact@v4
         with:
-          name: VoiceChanger-APK
+          name: VoiceChanger-v2-APK
           path: android/app/build/outputs/apk/debug/*.apk

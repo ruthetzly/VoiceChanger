@@ -40,10 +40,10 @@ class MainActivity : AppCompatActivity() {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
             val binder = service as AudioProcessingService.AudioBinder
             audioService = binder.getService()
-            audioService?.setStatusCallback { status ->
+            audioService?.setStatusCallback { status: String ->
                 runOnUiThread { tvStatus.text = status }
             }
-            audioService?.setTextCallback { original, translated ->
+            audioService?.setTextCallback { original: String, translated: String ->
                 runOnUiThread {
                     tvOriginalText.text = "识别: $original"
                     tvTranslatedText.text = "翻译: $translated"

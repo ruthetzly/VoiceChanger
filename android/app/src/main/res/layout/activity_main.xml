@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#1a1a2e"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/tv_title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="20dp"
+        android:text="🐉 大龙变声翻译器"
+        android:textColor="#e94560"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/tv_subtitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="中文男声 → 翻译印尼语 → 女声输出"
+        android:textColor="#aaa"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_title" />
+
+    <!-- 服务器地址 -->
+    <EditText
+        android:id="@+id/et_server_url"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="24dp"
+        android:background="@drawable/edit_bg"
+        android:gravity="center"
+        android:hint="服务器地址 IP:端口"
+        android:padding="8dp"
+        android:text="101.37.237.237:8765"
+        android:textColor="#fff"
+        android:textColorHint="#666"
+        app:layout_constraintEnd_toStartOf="@id/btn_connect"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_subtitle" />
+
+    <Button
+        android:id="@+id/btn_connect"
+        android:layout_width="80dp"
+        android:layout_height="48dp"
+        android:layout_marginStart="8dp"
+        android:backgroundTint="#e94560"
+        android:text="连接"
+        android:textColor="#fff"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toEndOf="@id/et_server_url"
+        app:layout_constraintTop_toTopOf="@id/et_server_url" />
+
+    <!-- 状态 -->
+    <TextView
+        android:id="@+id/tv_status"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="8dp"
+        android:gravity="center"
+        android:text="就绪 ✓"
+        android:textColor="#0f0"
+        android:textSize="14sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/et_server_url" />
+
+    <!-- 录音开关 -->
+    <ToggleButton
+        android:id="@+id/toggle_record"
+        android:layout_width="160dp"
+        android:layout_height="160dp"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/record_button"
+        android:gravity="center"
+        android:textOff="🎤 开始变声"
+        android:textOn="⏹ 停止"
+        android:textColor="#fff"
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_status" />
+
+    <!-- 音量 -->
+    <TextView
+        android:id="@+id/tv_volume_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="输出音量"
+        android:textColor="#aaa"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/toggle_record" />
+
+    <SeekBar
+        android:id="@+id/sb_volume"
+        android:layout_width="0dp"
+        android:layout_height="32dp"
+        android:layout_marginTop="4dp"
+        android:max="100"
+        android:progress="80"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_volume_label" />
+
+    <!-- Chatous模式开关 -->
+    <TextView
+        android:id="@+id/tv_chatous_label"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="扬声器模式（配合Chatous等APP使用）"
+        android:textColor="#aaa"
+        android:textSize="12sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/sb_volume" />
+
+    <com.google.android.material.switchmaterial.SwitchMaterial
+        android:id="@+id/switch_chatous"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="外放模式"
+        android:textColor="#fff"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_chatous_label" />
+
+    <!-- 识别文字 -->
+    <TextView
+        android:id="@+id/tv_original_text"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="16dp"
+        android:background="#16213e"
+        android:gravity="center|start"
+        android:padding="8dp"
+        android:text="识别: "
+        android:textColor="#fff"
+        android:textSize="13sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/switch_chatous" />
+
+    <TextView
+        android:id="@+id/tv_translated_text"
+        android:layout_width="0dp"
+        android:layout_height="40dp"
+        android:layout_marginTop="4dp"
+        android:background="#16213e"
+        android:gravity="center|start"
+        android:padding="8dp"
+        android:text="翻译: "
+        android:textColor="#4fc3f7"
+        android:textSize="13sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_original_text" />
+
+    <!-- 说明 -->
+    <TextView
+        android:id="@+id/tv_instructions"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:padding="8dp"
+        android:text="💡 使用说明：\n1. 确保手机连接网络\n2. 点击「连接」连接服务器\n3. 点击「开始变声」说话\n4. 开启扬声器模式后，打开Chatous\n   对方听到的将是你转化后的女声\n5. 你的中文会被翻译成印尼语女声"
+        android:textColor="#888"
+        android:textSize="11sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tv_translated_text" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

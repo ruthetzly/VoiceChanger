@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Gradle wrapper script
+# 如果您没有安装Gradle，此脚本会自动下载
+
+# 设置Java
+JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk-amd64}"
+
+# 下载目录
+APP_HOME=$( cd "${APP_HOME:-./}" > /dev/null && pwd -P 2>/dev/null || true )
+
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+
+# 执行Gradle Wrapper
+exec "$JAVA_HOME/bin/java" \
+    -classpath "$CLASSPATH" \
+    org.gradle.wrapper.GradleWrapperMain \
+    "$@"

@@ -1,0 +1,29 @@
+# Gradle
+.gradle/
+build/
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Android
+app/build/
+*.apk
+*.aab
+
+# SDK
+/android-sdk/
+cmdline-tools.zip
+*.zip
+
+# Environment
+.env
+*.token

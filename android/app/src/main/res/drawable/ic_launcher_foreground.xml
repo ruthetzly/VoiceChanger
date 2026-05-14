@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <!-- 麦克风图标 -->
-    <path
-        android:fillColor="#FFFFFF"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF"
         android:pathData="M54,20c-5.5,0 -10,4.5 -10,10v16c0,5.5 4.5,10 10,10s10,-4.5 10,-10V30c0,-5.5 -4.5,-10 -10,-10zM68,46c0,7.7 -6.3,14 -14,14s-14,-6.3 -14,-14h-4c0,9.7 7.4,17.7 17,18.9V82h-6v4h14v-4h-6V64.9c9.6,-1.2 17,-9.2 17,-18.9h-4z" />
 </vector>

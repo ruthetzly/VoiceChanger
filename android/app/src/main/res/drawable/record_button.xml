@@ -3,9 +3,5 @@
     android:shape="oval">
     <solid android:color="#e94560" />
     <stroke android:width="4dp" android:color="#4fc3f7" />
-    <padding
-        android:left="8dp"
-        android:top="8dp"
-        android:right="8dp"
-        android:bottom="8dp" />
+    <padding android:left="8dp" android:top="8dp" android:right="8dp" android:bottom="8dp" />
 </shape>

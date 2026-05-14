@@ -3,7 +3,7 @@ name: 编译APK
 on:
   push:
     branches: [ "main" ]
-  workflow_dispatch:  # 手动触发
+  workflow_dispatch:
 
 jobs:
   build:
@@ -22,13 +22,13 @@ jobs:
       - name: 设置 Android SDK
         uses: android-actions/setup-android@v3
 
-      - name: 赋予 Gradle 执行权限
-        run: chmod +x gradlew
-        working-directory: android
-
       - name: 编译 Debug APK
-        run: ./gradlew assembleDebug
-        working-directory: android
+        run: |
+          cd android
+          # 下载gradle并直接使用
+          curl -sL -o /tmp/gradle.zip https://services.gradle.org/distributions/gradle-8.5-bin.zip
+          unzip -q /tmp/gradle.zip -d /tmp/
+          /tmp/gradle-8.5/bin/gradle assembleDebug
 
       - name: 上传 APK
         uses: actions/upload-artifact@v4
